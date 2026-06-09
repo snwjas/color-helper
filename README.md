@@ -86,8 +86,6 @@ npm run preview
 | MUI 5 | UI 组件库 |
 | chroma-js | 颜色空间转换与计算 |
 | iro.js | 色轮选择器 |
-| Konva / react-konva | Canvas 图像处理 |
-| react-router-dom | 路由管理 |
 
 ## 核心功能说明
 

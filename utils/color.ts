@@ -179,6 +179,29 @@ export function isLightColor(color: string): boolean {
 }
 
 /**
+ * 判断颜色是否为深色(Lab 亮度 < 80)
+ */
+export function isDarkColor(hex: string): boolean {
+  return chroma(hex).get('lab.l') < 80;
+}
+
+/**
+ * 根据背景色深浅返回合适的文字颜色(黑/白)
+ */
+export function textColorFor(hex: string): string {
+  return isDarkColor(hex) ? '#fff' : '#000';
+}
+
+/**
+ * 生成半透明辅助色: 深色背景用白色、浅色背景用黑色
+ */
+export function dimColor(hex: string, alpha: number): string {
+  return isDarkColor(hex)
+    ? chroma('#fff').alpha(alpha).hex()
+    : chroma('#000').alpha(alpha).hex();
+}
+
+/**
  * 获取对比色(用于文字)
  */
 export function getContrastColor(color: string): string {

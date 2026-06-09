@@ -19,6 +19,7 @@ import CropIcon from '@mui/icons-material/Crop';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import chroma from 'chroma-js';
 import { quantize } from '../utils/quantize';
+import { isDarkColor, textColorFor, dimColor } from '../utils/color';
 import { screenCapture, copyText, hideMainWindow, aiChat, isAIAvailable } from '../utils/platform';
 
 // 导入模板封面图
@@ -132,23 +133,6 @@ function extractColorsFromImage(img: HTMLImageElement): { mainColor: string; pal
   }
 }
 
-/** 判断颜色是否为深色(Lab 亮度 < 80) */
-function isDarkColor(hex: string): boolean {
-  return chroma(hex).get('lab.l') < 80;
-}
-
-/** 根据背景色深浅返回合适的文字颜色(黑/白) */
-function textColorFor(hex: string): string {
-  return isDarkColor(hex) ? '#fff' : '#000';
-}
-
-/** 生成半透明辅助色: 深色背景用白色、浅色背景用黑色 */
-function dimColor(hex: string, alpha: number): string {
-  return isDarkColor(hex)
-    ? chroma('#fff').alpha(alpha).hex()
-    : chroma('#000').alpha(alpha).hex();
-}
-
 /**
  * AI 色卡名称生成 Hook
  * 调用 AI 根据颜色值生成文艺名称，支持缓存和自动生成
@@ -166,8 +150,18 @@ function useGenerateName(color: string, style: string = '文艺优雅', nameLeng
   const [error, setError] = useState('');
 
   const cacheKey = useMemo(() => color + style + nameLength, [color, style, nameLength]);
+  const isMounted = useRef(true);
+  const latestCacheKey = useRef(cacheKey);
 
-  const generateName = useCallback((cacheKey: string, excludeName?: string) => {
+  useEffect(() => {
+    isMounted.current = true;
+    latestCacheKey.current = cacheKey;
+    return () => {
+      isMounted.current = false;
+    };
+  }, [cacheKey]);
+
+  const generateName = useCallback((targetCacheKey: string, excludeName?: string) => {
     const ai = isAIAvailable();
     if (!ai) {
       setError('当前版本不支持 AI 功能');
@@ -193,6 +187,7 @@ ${excludeName ? `- 名字不能是${excludeName}` : ''}
 
     setLoading(true);
     setName('');
+    setError('');
 
     const promise = aiChat([
       { role: 'system', content: systemPrompt },
@@ -200,10 +195,12 @@ ${excludeName ? `- 名字不能是${excludeName}` : ''}
     ]);
 
     promise.then(result => {
+      if (!isMounted.current || targetCacheKey !== latestCacheKey.current) return;
       setLoading(false);
       setName(result.content);
-      nameCache.set(cacheKey, result.content);
+      nameCache.set(targetCacheKey, result.content);
     }).catch(() => {
+      if (!isMounted.current || targetCacheKey !== latestCacheKey.current) return;
       setLoading(false);
       setError('AI 调用异常');
     });
@@ -221,10 +218,7 @@ ${excludeName ? `- 名字不能是${excludeName}` : ''}
       return;
     }
 
-    const promise = generateName(key);
-    return () => {
-      promise?.abort?.();
-    };
+    generateName(key);
   }, [color, style, nameLength, generateName, autoGenerate]);
 
   return [name, { loading, error, generateName, cacheKey }] as const;

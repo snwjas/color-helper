@@ -30,19 +30,6 @@ import { dbStorage, screenColorPick, aiChat, isAIAvailable } from '../utils/plat
  * - 配色结果可点击复制
  */
 
-/** HEX 颜色值转 rgb(...) 字符串 */
-function hexToRgbString(hex: string): string {
-  hex = hex.slice(1);
-  const re = new RegExp(`.{1,${hex.length >= 6 ? 2 : 1}}`, "g");
-  let parts = hex.match(re);
-  if (parts && parts[0].length === 1) {
-    parts = parts.map(p => p + p);
-  }
-  return parts
-    ? `rgb${parts.length === 4 ? "a" : ""}(${parts.map((p, i) => i < 3 ? parseInt(p, 16) : Math.round(parseInt(p, 16) / 255 * 1e3) / 1e3).join(", ")})`
-    : "";
-}
-
 /** AI 返回的配色项 */
 interface AIPaletteItem {
   hex: string;
@@ -422,7 +409,7 @@ const AIPalettePage = memo(function AIPalettePage(props: AIPaletteProps) {
                   </IconButton>
                 </Tooltip>
                 <Tooltip placement="right" title="复制颜色">
-                  <IconButton disableFocusRipple size="small" onClick={() => { props.onColorClick({ currentTarget: { style: { backgroundColor: hexToRgbString(mainColor) } } }); }}>
+                  <IconButton disableFocusRipple size="small" onClick={() => { props.onColorClick(mainColor); }}>
                     <ContentCopyIcon />
                   </IconButton>
                 </Tooltip>
@@ -498,7 +485,7 @@ const AIPalettePage = memo(function AIPalettePage(props: AIPaletteProps) {
                   >
                     <Box
                       sx={{ bgcolor: w.hex, width: 58, height: 58, borderRadius: 1, cursor: 'pointer' }}
-                      onClick={() => { props.onColorClick({ currentTarget: { style: { backgroundColor: hexToRgbString(w.hex) } } }); }}
+                      onClick={() => { props.onColorClick(w.hex); }}
                     />
                   </Tooltip>
                 ))}

@@ -25,11 +25,6 @@ import { db, dbStorage, screenColorPick } from '../utils/platform';
  * 数据持久化到 dbStorage
  */
 
-function hexToRgbString(hex: string): string {
-  const c = chroma(hex);
-  return `rgb(${c.rgb().join(", ")})`;
-}
-
 interface CollectColor {
   _id: string;
   _rev?: string;
@@ -260,7 +255,7 @@ class CollectColorsPage extends Component<{ onColorClick: (e: any) => void }, Co
         const upper = color.toUpperCase();
         if (!/^#[A-F0-9]{6}$/.test(upper) || colors.find(c => c.color === upper)) return;
         const dark = chroma(color).get("lab.l") < 70;
-        const newDoc = { _id: "color/" + color.substring(1).toLowerCase(), name: "", color: upper, dark };
+        const newDoc: CollectColor = { _id: "color/" + color.substring(1).toLowerCase(), name: "", color: upper, dark };
         const result = db.put(newDoc);
         if (result.ok) {
           newDoc._rev = result.rev;
@@ -340,7 +335,7 @@ class CollectColorsPage extends Component<{ onColorClick: (e: any) => void }, Co
             <Typography
               className="collect-item"
               key={c._id}
-              onClick={() => this.props.onColorClick({ currentTarget: { style: { backgroundColor: hexToRgbString(c.color) } } })}
+              onClick={() => this.props.onColorClick(c.color)}
               sx={{
                 backgroundColor: c.color,
                 color: c.dark ? "#fff" : "#333",

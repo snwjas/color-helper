@@ -143,7 +143,7 @@ class App extends Component<{}, AppState> {
         if (type === "img") {
           this.imageEnterPayload = payload;
         } else if (type === "files") {
-          this.imageEnterPayload = payload[0].path;
+          this.imageEnterPayload = payload?.[0]?.path;
         } else {
           this.imageEnterPayload = null;
         }
