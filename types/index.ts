@@ -1,52 +1,44 @@
-// 颜色格式类型
-export type ColorFormat = 'hex' | 'rgb' | 'hsl' | 'hsv';
+// 颜色数据模型
+//
+// 与 data/*.json 的实际形状一一对应(已逐一核对, 见各注释)。
+// 注意: tsconfig 开启了 resolveJsonModule, JSON 推断为字面量类型,
+// 因此结构不符不会在编译期报错 —— 必须靠这里的接口约束住,
+// 各页面通过 `as unknown as Xxx[]` 显式声明形状后再消费。
 
-// 颜色对象接口
-export interface ColorObject {
-  hex: string;
-  rgb: { r: number; g: number; b: number };
-  hsl: { h: number; s: number; l: number };
-  hsv: { h: number; s: number; v: number };
+/** 渐变色预设 —— data/gradients-*.json 的实际形状: 颜色数组的数组(无 name/angle/category) */
+export type GradientPreset = string[];
+
+/** Material Design 色板 —— data/ui-material-design.json: 14 槽(10 主色 + A100~A400, 部分色系无强调色时为空串) */
+export interface MaterialColorCategory {
+  title: string;
+  colors: string[];
 }
 
-// 收藏的颜色项
-export interface CollectedColor {
-  id: string;
+/** 通用 UI 色板 —— data/ui-ant-design.json / ui-open-color.json / ui-fluent.json */
+export interface UIColorCategory {
+  title: string;
+  colors: string[];
+  /** 仅 ant-design 提供, 作者标注(如"平稳、中态"), 界面暂未展示 */
+  description?: string;
+}
+
+/** Flat UI 色板 —— data/ui-flat-ui.json: 每槽为一组色阶(6 个字符串), 不是单个色值 */
+export interface FlatUIColorCategory {
+  title: string;
+  colors: string[][];
+}
+
+/** 中国传统色分组 —— data/traditional-china.json: { title, colors: [{name,color}] } */
+export interface ChinaColorCategory {
+  title: string;
+  colors: Array<{ name: string; color: string }>;
+}
+
+/** 日本传统色条目 —— data/traditional-japan.json: 扁平列表, 额外带日语假名 */
+export interface JapanColorItem {
   name: string;
   color: string;
-  createdAt: number;
-}
-
-// 渐变色配置
-export interface GradientConfig {
-  colors: string[];
-  angle: number;
-  type: 'linear' | 'radial';
-}
-
-// 渐变预设
-export interface GradientPreset {
-  name: string;
-  colors: string[];
-  angle?: number;
-  category: string;
-}
-
-// UI色卡分类
-export interface UIColorCategory {
-  name: string;
-  colors: string[];
-}
-
-// 传统色分类
-export interface TraditionalColorCategory {
-  name: string;
-  title: string;
-  colors: Array<{
-    name: string;
-    color: string;
-    pinyin?: string;
-  }>;
+  jname: string;
 }
 
 // 平台 API 类型声明
@@ -66,6 +58,7 @@ declare global {
       setSubInput: (callback: (data: { text: string }) => void, placeholder: string, isFocus: boolean) => void;
       removeSubInput: () => void;
       hideMainWindow: () => void;
+      showMainWindow: () => void;
       outPlugin: () => void;
       showSaveDialog: (options: {
         title: string;
@@ -81,12 +74,13 @@ declare global {
       shellShowItemInFolder: (path: string) => void;
       getPath: (name: string) => string;
       pickColor: () => string;
-      screenColorPick: (callback: (result: { hex: string }) => void) => void;
+      screenColorPick: (callback: (result: { hex: string; rgb: string }) => void) => void;
       screenCapture: (callback: (data: string) => void) => void;
       db: {
         put: (doc: any) => any;
         get: (id: string) => any;
-        remove: (id: string) => any;
+        remove: (id: any) => any;
+        allDocs: (key?: string) => any[];
       };
     };
     services?: {

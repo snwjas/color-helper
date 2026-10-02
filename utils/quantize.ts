@@ -14,11 +14,6 @@ function naturalOrder(a: number, b: number): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** 数组求和 */
-function sumArray(array: number[]): number {
-  return array.reduce((a, b) => a + b, 0);
-}
-
 /**
  * 优先队列 - 存储 VBox 对象，按比较器排序
  * 延迟排序: dirty 标记确保只在需要时才排序
@@ -37,7 +32,7 @@ class PQueue {
   peek(index?: number): VBox {
     if (this.dirty) this.sort();
     if (index === undefined) index = this.sorted.length - 1;
-    return this.sorted[index];
+    return this.sorted[index]!;
   }
 
   pop(): VBox | undefined {
@@ -111,7 +106,7 @@ class VBox {
       this._count = c;
       this._count_set = true;
     }
-    return this._count;
+    return this._count!;
   }
 
   copy(): VBox {
@@ -168,7 +163,7 @@ class SimpleCMap {
   palette(): number[][] {
     return this.colors;
   }
-  map(pixel: number[]): number {
+  map(pixel: number[]): number[] {
     return pixel;
   }
 }
@@ -198,7 +193,7 @@ class CMap {
   }
 
   /** 将像素映射到最近的代表色 */
-  map(pixel: number[]): number {
+  map(pixel: number[]): number[] {
     for (let i = 0; i < this.vboxes.size(); i++) {
       if (this.vboxes.peek(i).vbox.contains(pixel)) {
         return this.vboxes.peek(i).color;
@@ -208,7 +203,7 @@ class CMap {
   }
 
   /** 欧氏距离找最近代表色 */
-  private nearest(pixel: number[]): number {
+  private nearest(pixel: number[]): number[] {
     let minDist: number | undefined;
     let best: number[] = pixel;
     for (let i = 0; i < this.vboxes.size(); i++) {
@@ -242,7 +237,7 @@ class CMapPQueue {
   peek(index?: number): { vbox: VBox; color: number[] } {
     if (this.dirty) this.sort();
     if (index === undefined) index = this.sorted.length - 1;
-    return this.sorted[index];
+    return this.sorted[index]!;
   }
 
   pop(): { vbox: VBox; color: number[] } | undefined {
@@ -366,12 +361,12 @@ function medianCutApply(histo: HistoMap, vbox: VBox): VBox[] | null {
  * 4. 按 count*volume 排序后第二轮切分: 目标 maxColors
  * 5. 生成 CMap 颜色映射表
  */
-export function quantize(pixels: number[][], maxColors: number): CMap | SimpleCMap | null | false {
+export function quantize(pixels: number[][], maxColors: number): CMap | SimpleCMap | null {
   if (!Number.isInteger(maxColors) || maxColors < 1 || maxColors > 256) {
     throw new Error('Invalid maximum color count. It must be an integer between 1 and 256.');
   }
 
-  if (!pixels.length || maxColors < 2 || maxColors > 256) return false;
+  if (!pixels.length || maxColors < 2 || maxColors > 256) return null;
 
   // 去重
   const uniquePixels: number[][] = [];

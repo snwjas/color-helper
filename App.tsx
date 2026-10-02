@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { Component, lazy, Suspense } from 'react';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
@@ -21,11 +21,17 @@ import chroma from 'chroma-js';
 import ColorPage from './pages/ColorPage';
 import UIPalettesPage from './pages/UIPalettesPage';
 import TraditionalColorsPage from './pages/TraditionalColorsPage';
-import GradientsPage from './pages/GradientsPage';
-import ImagePalettePage from './pages/ImagePalettePage';
 import CollectColorsPage from './pages/CollectColorsPage';
-import AIPalettePage from './pages/AIPalettePage';
 import { copyText, dbStorage, screenColorPick, onPluginEnter, onPluginOut, isPlatform } from './utils/platform';
+
+// 代码分割试点: 只拆「单次使用 + 自带大块资源」的页面
+//  - GradientsPage: 渐变数据 4.05 kB gzip + 代码 17.71 kB
+//  - ImagePalettePage: 4 张封面图 107 kB + quantize.ts
+//  - AIPalettePage: 色轮 UI(iro 仅剩样式与 ui 常量, 逻辑已在首屏共用 chunk)
+// 其余页面体积小且首屏常用, 保持静态导入
+const GradientsPage = lazy(() => import('./pages/GradientsPage'));
+const ImagePalettePage = lazy(() => import('./pages/ImagePalettePage'));
+const AIPalettePage = lazy(() => import('./pages/AIPalettePage'));
 
 /**
  * App - 核心架构: 状态驱动导航(this.state.nav) + 平台生命周期
@@ -65,10 +71,10 @@ interface AppState {
   openMessage: boolean;
   messageData: { key: number; color: string; body?: string };
   setting: boolean;
+  imagePayload: string | null;
 }
 
 class App extends Component<{}, AppState> {
-  private imageEnterPayload: any = null;
 
   state: AppState = {
     nav: "",
@@ -76,6 +82,7 @@ class App extends Component<{}, AppState> {
     openMessage: false,
     messageData: { key: 0, color: "" },
     setting: false,
+    imagePayload: null,
   };
 
   handleNavChange = (nav: string) => () => {
@@ -140,28 +147,29 @@ class App extends Component<{}, AppState> {
       const setting = !!dbStorage.getItem("setting");
 
       if (code === "image") {
+        let imagePayload: string | null = null;
         if (type === "img") {
-          this.imageEnterPayload = payload;
+          imagePayload = payload;
         } else if (type === "files") {
-          this.imageEnterPayload = payload?.[0]?.path;
-        } else {
-          this.imageEnterPayload = null;
+          imagePayload = payload?.[0]?.path || null;
         }
-      } else {
-        if (code === "pickercolor") {
-          screenColorPick(({ hex }) => {
-            this.setState({ nav: "color", colorValue: [hex], setting });
-          });
-          return;
-        }
-        if (code === "color" && type === "regex") {
-          this.setState({ nav: "color", colorValue: [payload], setting });
-          return;
-        }
-        if (code === "ai" && type === "regex") {
-          this.setState({ nav: "ai", colorValue: [payload], setting });
-          return;
-        }
+        this.setState({ nav: "image", imagePayload, setting });
+        return;
+      }
+
+      if (code === "pickercolor") {
+        screenColorPick(({ hex }) => {
+          this.setState({ nav: "color", colorValue: [hex], setting });
+        });
+        return;
+      }
+      if (code === "color" && type === "regex") {
+        this.setState({ nav: "color", colorValue: [payload], setting });
+        return;
+      }
+      if (code === "ai" && type === "regex") {
+        this.setState({ nav: "ai", colorValue: [payload], setting });
+        return;
       }
 
       this.setState({ nav: code, setting });
@@ -183,7 +191,7 @@ class App extends Component<{}, AppState> {
   }
 
   render() {
-    const { nav, colorValue, openMessage, messageData, setting } = this.state;
+    const { nav, colorValue, openMessage, messageData, setting, imagePayload } = this.state;
 
     // 页面内容
     let pageContent: React.ReactNode;
@@ -198,10 +206,10 @@ class App extends Component<{}, AppState> {
         pageContent = <TraditionalColorsPage onColorClick={this.handleColorClick} />;
         break;
       case "gradient":
-        pageContent = <GradientsPage onColorClick={this.handleColorClick} />;
+        pageContent = <GradientsPage onColorClick={this.handleColorClick} showMessage={this.showMessage} />;
         break;
       case "image":
-        pageContent = <ImagePalettePage onColorClick={this.handleColorClick} />;
+        pageContent = <ImagePalettePage onColorClick={this.handleColorClick} initialImage={imagePayload} />;
         break;
       case "collect":
         pageContent = <CollectColorsPage onColorClick={this.handleColorClick} />;
@@ -246,7 +254,9 @@ class App extends Component<{}, AppState> {
           </Tooltip>
         </div>
         <div className="app-content">
-          {pageContent}
+          <Suspense fallback={<div className="page-loading" />}>
+            {pageContent}
+          </Suspense>
         </div>
         <Snackbar
           anchorOrigin={{ horizontal: 'right', vertical: 'top' }}

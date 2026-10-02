@@ -1,5 +1,4 @@
 import React, { Component, PureComponent } from 'react';
-import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
@@ -12,6 +11,7 @@ import ColorizeIcon from '@mui/icons-material/Colorize';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import chroma from 'chroma-js';
 import iro from '@jaames/iro';
+import { isDarkColor } from '../utils/color';
 
 /**
  * ColorPage - 颜色转换页面
@@ -97,8 +97,9 @@ function convertStateColor(color: chroma.Color): ColorState {
   };
 }
 
-/** 按指定格式解析颜色字符串，返回 chroma.Color 或 null */
-function parseColorByType(type: string, value: string): chroma.Color | null {
+/** 按指定格式解析颜色字符串，返回 chroma.Color 或 null
+ *  导出以供回归测试(另一处同名实现在 AIPalettePage, 行为不同, 见 tests/color-parsing.test.ts) */
+export function parseColorByType(type: string, value: string): chroma.Color | null {
   if (type === "hex") {
     if (/^[0-9a-fA-F]{6}$/.test(value)) return chroma("#" + value);
     return null;
@@ -140,8 +141,8 @@ function parseColorByType(type: string, value: string): chroma.Color | null {
   return null;
 }
 
-/** 自动识别颜色格式并解析输入字符串 */
-function parseColorInput(input: string): chroma.Color | null {
+/** 自动识别颜色格式并解析输入字符串(导出以供回归测试) */
+export function parseColorInput(input: string): chroma.Color | null {
   if (!input || input.length < 4) return null;
   let type: string;
   let value = input;
@@ -174,7 +175,7 @@ class IroColorPicker extends PureComponent<IroPickerProps> {
 
   componentDidMount() {
     if (!this.containerRef.current) return;
-    this.colorPicker = new iro.ColorPicker(this.containerRef.current, {
+    this.colorPicker = iro.ColorPicker(this.containerRef.current, {
       width: 300,
       borderWidth: 1,
       handleSvg: "#handle",
@@ -236,17 +237,7 @@ interface ColorPageState {
   activeIndex: number;
 }
 
-/** 配色方案标签映射 */
-const schemeLabels: Record<string, string> = {
-  complementary: "互补色",
-  triadic: "对比色",
-  analogous: "类似色",
-  tetradic: "中差色",
-};
-
 class ColorPage extends Component<ColorPageProps, ColorPageState> {
-  private _currentChromaColor: chroma.Color | null = null;
-
   /** 添加新颜色到色板(最多8个，超出时移除最早的) */
   setNewColor = (color: ColorState) => {
     const colors = [...this.state.colors, color];
@@ -564,7 +555,7 @@ class ColorPage extends Component<ColorPageProps, ColorPageState> {
             <div className="color-hub">
               <div className="color-hub-wrapper">
                 {colors.map((color, index) => {
-                  const isDark = chroma(color.hex).get('lab.l') < 70;
+                  const isDark = isDarkColor(color.hex);
                   return (
                     <Typography
                       key={index}

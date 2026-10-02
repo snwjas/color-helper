@@ -17,6 +17,7 @@ import AddIcon from '@mui/icons-material/Add';
 import ColorizeIcon from '@mui/icons-material/Colorize';
 import chroma from 'chroma-js';
 import { db, dbStorage, screenColorPick } from '../utils/platform';
+import { isDarkColor } from '../utils/color';
 
 /**
  * CollectColorsPage - 收藏颜色管理页面
@@ -80,7 +81,7 @@ class CollectFormDialog extends Component<FormDialogProps, FormDialogState> {
       }
       this.props.formData!._id = docId;
       this.props.formData!.color = hex.toUpperCase();
-      this.props.formData!.dark = parsed.get("lab.l") < 70;
+      this.props.formData!.dark = isDarkColor(hex);
     }
     const result = db.put(this.props.formData!);
     if (result?.error) {
@@ -239,7 +240,12 @@ class CollectColorsPage extends Component<{ onColorClick: (e: any) => void }, Co
     let markerDoc: any = null;
 
     const allDocs = db.allDocs();
+    if (!Array.isArray(allDocs)) {
+      this.state = { colors: [], colorForm: null, openDeleteData: null };
+      return;
+    }
     allDocs.forEach((doc: any) => {
+      if (!doc || typeof doc._id !== "string") return;
       if (doc._id.startsWith("color/")) {
         colors.push(doc);
       } else if (doc._id === "collectsort") {
@@ -250,14 +256,14 @@ class CollectColorsPage extends Component<{ onColorClick: (e: any) => void }, Co
     });
 
     // 迁移markercolor旧数据
-    if (markerDoc) {
+    if (markerDoc && Array.isArray(markerDoc.colors)) {
       markerDoc.colors.forEach((color: string) => {
+        if (typeof color !== "string") return;
         const upper = color.toUpperCase();
         if (!/^#[A-F0-9]{6}$/.test(upper) || colors.find(c => c.color === upper)) return;
-        const dark = chroma(color).get("lab.l") < 70;
-        const newDoc: CollectColor = { _id: "color/" + color.substring(1).toLowerCase(), name: "", color: upper, dark };
+        const newDoc: CollectColor = { _id: "color/" + color.substring(1).toLowerCase(), name: "", color: upper, dark: isDarkColor(upper) };
         const result = db.put(newDoc);
-        if (result.ok) {
+        if (result && result.ok) {
           newDoc._rev = result.rev;
           colors.push(newDoc);
         }
@@ -306,6 +312,8 @@ class CollectColorsPage extends Component<{ onColorClick: (e: any) => void }, Co
     }
     const index = colors.findIndex(c => c._id === openDeleteData._id);
     if (index !== -1) colors.splice(index, 1);
+    // 同步排序索引, 否则 collectsort 会永久残留僵尸 id
+    dbStorage.setItem("collectsort", colors.map(c => c._id));
     this.setState({ openDeleteData: null });
   };
 
@@ -335,7 +343,18 @@ class CollectColorsPage extends Component<{ onColorClick: (e: any) => void }, Co
             <Typography
               className="collect-item"
               key={c._id}
+              role="button"
+              tabIndex={0}
+              aria-label={`复制色值 ${c.color}`}
               onClick={() => this.props.onColorClick(c.color)}
+              onKeyDown={(e) => {
+                // 仅响应落在本元素上的按键, 避免内部编辑/删除按钮的回车冒泡触发复制
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  this.props.onColorClick(c.color);
+                }
+              }}
               sx={{
                 backgroundColor: c.color,
                 color: c.dark ? "#fff" : "#333",

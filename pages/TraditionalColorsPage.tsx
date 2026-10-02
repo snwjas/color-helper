@@ -5,11 +5,12 @@ import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
-import Typography from '@mui/material/Typography';
 import CheckIcon from '@mui/icons-material/Check';
 import chroma from 'chroma-js';
+import { isDarkColor } from '../utils/color';
 import chinaColors from '../data/traditional-china.json';
 import japanColors from '../data/traditional-japan.json';
+import type { ChinaColorCategory, JapanColorItem as JapanColorItemData } from '../types';
 
 /**
  * TraditionalColorsPage - 传统色页面
@@ -18,11 +19,11 @@ import japanColors from '../data/traditional-japan.json';
  * 点击色块可复制颜色值，长按可收藏/取消收藏
  */
 
-// 颜色属性分类(tag + dark)
-function getColorAttr(color: string): { tag: string; dark: boolean } {
+// 颜色属性分类(tag + dark) —— 导出以供回归测试
+export function getColorAttr(color: string): { tag: string; dark: boolean } {
   const c = chroma(color);
   let [h, s, l] = c.hsl();
-  const dark = c.get('lab.l') < 70;
+  const dark = isDarkColor(color);
   h = isNaN(h) ? 0 : h;
   let tag: string;
   if (l < 0.2) tag = "black";
@@ -58,7 +59,7 @@ const filterColors = [
 interface ChinaColorItem {
   name: string;
   color: string;
-  attr?: { tag: string; dark: boolean };
+  attr: { tag: string; dark: boolean };
 }
 
 interface ChinaColorGroup {
@@ -71,22 +72,21 @@ interface JapanColorItem {
   name: string;
   jname: string;
   color: string;
-  attr?: { tag: string; dark: boolean };
+  attr: { tag: string; dark: boolean };
 }
 
-const ncData: ChinaColorGroup[] = (chinaColors as any[]).map((group: any) => ({
+const ncData: ChinaColorGroup[] = (chinaColors as unknown as ChinaColorCategory[]).map((group) => ({
   title: group.title,
-  colors: group.colors.map((c: any) => ({
-    name: c.name,
-    color: c.color,
-  })),
+  colors: group.colors.map((c) => {
+    const color = c.color;
+    return { name: c.name, color, attr: getColorAttr(color) };
+  }),
 }));
 
-const tcData: JapanColorItem[] = (japanColors as any[]).map((c: any) => ({
-  name: c.name,
-  jname: c.jname || c.romaji || "",
-  color: c.color,
-}));
+const tcData: JapanColorItem[] = (japanColors as unknown as JapanColorItemData[]).map((c) => {
+  const color = c.color;
+  return { name: c.name, jname: c.jname || "", color, attr: getColorAttr(color) };
+});
 
 // 中国传统色
 interface ChinaColorsProps {
@@ -102,14 +102,7 @@ interface ChinaColorsState {
 class ChinaColors extends Component<ChinaColorsProps, ChinaColorsState> {
   constructor(props: ChinaColorsProps) {
     super(props);
-    // 初始化attr=> { o.colors.forEach(s => { s.attr = o8(s.color) }) })"
-    if (!ncData[0]?.colors[0]?.attr) {
-      ncData.forEach(group => {
-        group.colors.forEach(c => {
-          c.attr = getColorAttr(c.color);
-        });
-      });
-    }
+    // attr 已在模块级 ncData 构建时一次性算好(见 getColorAttr)
     this.state = { colors: ncData };
   }
 
@@ -127,7 +120,7 @@ class ChinaColors extends Component<ChinaColorsProps, ChinaColorsState> {
   filterByFilterColor = () => {
     const result: ChinaColorGroup[] = [];
     ncData.forEach(group => {
-      const filtered = group.colors.filter(c => c.attr!.tag === this.props.filterColor);
+      const filtered = group.colors.filter(c => c.attr.tag === this.props.filterColor);
       if (filtered.length > 0) {
         result.push({ title: group.title, colors: filtered });
       }
@@ -163,7 +156,7 @@ class ChinaColors extends Component<ChinaColorsProps, ChinaColorsState> {
                 <div
                   key={`${gi}-${ci}`}
                   onClick={this.props.onColorClick}
-                  style={{ backgroundColor: c.color, color: c.attr!.dark ? "#fff" : "#212121" }}
+                  style={{ backgroundColor: c.color, color: c.attr.dark ? "#fff" : "#212121" }}
                 >
                   <div>{c.name}</div>
                   <div>{c.color}</div>
@@ -191,12 +184,7 @@ interface JapanColorsState {
 class JapanColors extends Component<JapanColorsProps, JapanColorsState> {
   constructor(props: JapanColorsProps) {
     super(props);
-    // 初始化attr=> { o.attr = o8(o.color) })"
-    if (!tcData[0]?.attr) {
-      tcData.forEach(c => {
-        c.attr = getColorAttr(c.color);
-      });
-    }
+    // attr 已在模块级 tcData 构建时一次性算好(见 getColorAttr)
     this.state = { colors: tcData };
   }
 
@@ -206,7 +194,7 @@ class JapanColors extends Component<JapanColorsProps, JapanColorsState> {
   };
 
   filterByFilterColor = () => {
-    const result = tcData.filter(c => c.attr!.tag === this.props.filterColor);
+    const result = tcData.filter(c => c.attr.tag === this.props.filterColor);
     this.setState({ colors: result });
   };
 
@@ -234,7 +222,7 @@ class JapanColors extends Component<JapanColorsProps, JapanColorsState> {
           <div
             key={i}
             onClick={this.props.onColorClick}
-            style={{ backgroundColor: c.color, color: c.attr!.dark ? "#fff" : "#333" }}
+            style={{ backgroundColor: c.color, color: c.attr.dark ? "#fff" : "#333" }}
           >
             <div>{c.name}</div>
             <div>{c.jname}</div>

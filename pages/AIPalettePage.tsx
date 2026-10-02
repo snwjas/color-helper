@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
 import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import Dialog from '@mui/material/Dialog';
@@ -171,7 +170,7 @@ function IroPicker({ color, onChange }: IroPickerProps) {
       if (c) pickerRef.current.color.hexString = c.hex();
       return;
     }
-    pickerRef.current = new iro.ColorPicker(containerRef.current, {
+    pickerRef.current = iro.ColorPicker(containerRef.current, {
       width: 190,
       borderWidth: 1,
       handleSvg: "#colorHandle",
@@ -499,8 +498,8 @@ const AIPalettePage = memo(function AIPalettePage(props: AIPaletteProps) {
   );
 });
 
-// 解析颜色输入
-function parseColorInput(input: string | null): chroma.Color | null {
+// 解析颜色输入(宽松实现, 直接交给 chroma; 导出以供回归测试)
+export function parseColorInput(input: string | null): chroma.Color | null {
   if (!input) return null;
   try {
     return chroma(input);

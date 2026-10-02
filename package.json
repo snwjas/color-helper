@@ -3,10 +3,13 @@
   "version": "1.0.0",
   "description": "颜色助手",
   "type": "module",
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@emotion/react": "^11.11.1",
@@ -16,15 +19,17 @@
     "@mui/material": "^5.14.0",
     "chroma-js": "^2.4.2",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.15.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/chroma-js": "^2.4.0",
+    "@types/node": "^26.6.4",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
-    "@vitejs/plugin-react": "^4.0.4",
+    "@vitejs/plugin-react": "^6.1.1",
+    "happy-dom": "^20.14.5",
     "typescript": "^5.1.6",
-    "vite": "^4.4.9"
+    "vite": "^8.3.2",
+    "vitest": "4.1.11"
   }
 }

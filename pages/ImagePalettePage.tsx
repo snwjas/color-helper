@@ -20,7 +20,7 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import chroma from 'chroma-js';
 import { quantize } from '../utils/quantize';
 import { isDarkColor, textColorFor, dimColor } from '../utils/color';
-import { screenCapture, copyText, hideMainWindow, aiChat, isAIAvailable } from '../utils/platform';
+import { screenCapture, aiChat, isAIAvailable } from '../utils/platform';
 
 // 导入模板封面图
 import cover01 from '../assets/color-card-01.jpg';
@@ -106,7 +106,7 @@ function getPalette(img: HTMLImageElement, colorCount?: number, quality?: number
   const imageData = getImageData(img);
   const pixels = filterPixels(imageData.data, imageData.width * imageData.height, q);
   const cmap = quantize(pixels, count);
-  return cmap && cmap !== false ? cmap.palette() : null;
+  return cmap ? cmap.palette() : null;
 }
 
 /**
@@ -318,7 +318,6 @@ function renderColorCard(
   const ctx = canvas.getContext('2d')!;
   const dark = isDarkColor(primaryColor);
   const textCol = dark ? '#fff' : '#000';
-  const dimCol = dimColor(primaryColor, 0.3);
   const semiCol = dimColor(primaryColor, 0.6);
 
   // 通用渲染：背景色填充
@@ -507,22 +506,21 @@ interface ColorCardDialogProps {
   bgImage: string;
   primaryColor: string;
   paletteColors: string[];
-  showMessage: (msg: string) => void;
 }
 
-function ColorCardDialog({ open, onClose, bgImage, primaryColor, paletteColors, showMessage }: ColorCardDialogProps) {
+function ColorCardDialog({ open, onClose, bgImage, primaryColor, paletteColors }: ColorCardDialogProps) {
   const [previewUrl, setPreviewUrl] = useState('');
   const [generating, setGenerating] = useState(false);
   const [description, setDescription] = useState('');
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [scene, setScene] = useState<string | null>(null);
   const [templateId, setTemplateId] = useState('01');
-  const [rerender, setRerender] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bgImgRef = useRef<HTMLImageElement | null>(null);
+  const generatingRef = useRef(0);
 
   // AI 名称生成
-  const [aiName, { loading: aiLoading, error: aiError, generateName }] = useGenerateName(
+  const [aiName, { loading: aiLoading, generateName }] = useGenerateName(
     primaryColor, '文艺优雅', 4, open
   );
 
@@ -539,10 +537,12 @@ function ColorCardDialog({ open, onClose, bgImage, primaryColor, paletteColors, 
     }
   }, [bgImage]);
 
-  // 生成色卡预览
+  // 生成色卡预览 (带代次守卫: 快速连续触发时只在最后一次完成后清除 loading)
   const generatePreview = useCallback(() => {
+    const gen = ++generatingRef.current;
     setGenerating(true);
     setTimeout(() => {
+      if (gen !== generatingRef.current) return;
       const canvas = canvasRef.current;
       if (!canvas) { setGenerating(false); return; }
 
@@ -590,7 +590,6 @@ function ColorCardDialog({ open, onClose, bgImage, primaryColor, paletteColors, 
   const handleTemplateChange = (id: string) => {
     if (id !== templateId) {
       setTemplateId(id);
-      setRerender(true);
     }
   };
 
@@ -600,8 +599,10 @@ function ColorCardDialog({ open, onClose, bgImage, primaryColor, paletteColors, 
     if (!canvas) return;
     const dataUrl = canvas.toDataURL('image/png');
     if (window.services?.saveColorCard) {
-      const buffer = Uint8Array.from(atob(dataUrl.split(',')[1]), c => c.charCodeAt(0));
-      window.services.saveColorCard(Array.from(buffer));
+      const binary = atob(dataUrl.split(',')[1]);
+      const buffer = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) buffer[i] = binary.charCodeAt(i);
+      window.services.saveColorCard(buffer.buffer);
     } else {
       const a = document.createElement('a');
       a.href = dataUrl;
@@ -745,13 +746,10 @@ interface ColorCardButtonProps {
   bgImage: string;
   primaryColor: string;
   paletteColors: string[];
-  onColorClick: (e: any) => void;
-  showMessage: (msg: string) => void;
 }
 
-function ColorCardButton({ bgImage, primaryColor, paletteColors, onColorClick, showMessage }: ColorCardButtonProps) {
+function ColorCardButton({ bgImage, primaryColor, paletteColors }: ColorCardButtonProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [generating, setGenerating] = useState(false);
 
   return (
     <>
@@ -775,7 +773,7 @@ function ColorCardButton({ bgImage, primaryColor, paletteColors, onColorClick, s
           variant="contained"
           color="inherit"
           fullWidth
-          onClick={() => { setDialogOpen(true); setGenerating(true); }}
+          onClick={() => setDialogOpen(true)}
           startIcon={<AutoAwesomeIcon />}
         >
           生成 AI 色卡
@@ -783,24 +781,30 @@ function ColorCardButton({ bgImage, primaryColor, paletteColors, onColorClick, s
       </Typography>
       <ColorCardDialog
         open={dialogOpen}
-        onClose={() => { setDialogOpen(false); setGenerating(false); }}
+        onClose={() => setDialogOpen(false)}
         bgImage={bgImage}
         primaryColor={primaryColor}
         paletteColors={paletteColors}
-        showMessage={showMessage}
       />
     </>
   );
 }
 
 // 图片取色主页面
+interface ImagePaletteProps {
+  onColorClick: (e: any) => void;
+  showMessage?: (msg: string) => void;
+  /** 平台入口传入的图片: type=img 时为 base64/dataURL, type=files 时为文件路径 */
+  initialImage?: string | null;
+}
+
 interface ImagePaletteState {
   imageUrl: string | null;
   primaryColor: string | null;
   paletteColors: string[] | null;
 }
 
-class ImagePalettePage extends Component<{ onColorClick: (e: any) => void; showMessage?: (msg: string) => void }, ImagePaletteState> {
+class ImagePalettePage extends Component<ImagePaletteProps, ImagePaletteState> {
   private fileInputRef = createRef<HTMLInputElement>();
 
   state: ImagePaletteState = {
@@ -808,6 +812,18 @@ class ImagePalettePage extends Component<{ onColorClick: (e: any) => void; showM
     primaryColor: null,
     paletteColors: null,
   };
+
+  componentDidMount() {
+    if (this.props.initialImage) {
+      this.setState({ imageUrl: this.props.initialImage, primaryColor: null, paletteColors: null });
+    }
+  }
+
+  componentDidUpdate(prevProps: ImagePaletteProps) {
+    if (prevProps.initialImage !== this.props.initialImage && this.props.initialImage) {
+      this.setState({ imageUrl: this.props.initialImage, primaryColor: null, paletteColors: null });
+    }
+  }
 
   handleImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
     try {
@@ -880,8 +896,6 @@ class ImagePalettePage extends Component<{ onColorClick: (e: any) => void; showM
                       bgImage={imageUrl}
                       primaryColor={primaryColor}
                       paletteColors={paletteColors?.filter(c => c !== primaryColor) || []}
-                      onColorClick={this.props.onColorClick}
-                      showMessage={this.props.showMessage || (() => {})}
                     />
                   </Stack>
                 </Card>

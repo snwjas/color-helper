@@ -93,57 +93,82 @@ export const db = {
 
   allDocs(key?: string): any[] {
     if (platform?.db) {
-      return platform.db.allDocs(key);
+      try {
+        return platform.db.allDocs(key) ?? [];
+      } catch {
+        return [];
+      }
     }
+    const results: any[] = [];
     try {
-      const results: any[] = [];
       const prefix = `${STORAGE_PREFIX}db_`;
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && k.startsWith(prefix)) {
-          const v = localStorage.getItem(k);
-          if (v) {
-            const doc = JSON.parse(v);
-            if (!key || doc._id.startsWith(key)) {
-              results.push(doc);
-            }
+        if (!k || !k.startsWith(prefix)) continue;
+        const v = localStorage.getItem(k);
+        if (!v) continue;
+        // 单个 doc 损坏只跳过该条, 不能让整批收藏都消失
+        try {
+          const doc = JSON.parse(v);
+          if (doc && (!key || (typeof doc._id === 'string' && doc._id.startsWith(key)))) {
+            results.push(doc);
           }
-        }
+        } catch { /* skip corrupt doc */ }
       }
-      return results;
     } catch {
-      return [];
+      return results;
     }
+    return results;
   },
 };
 
 // 剪贴板
+
+/** execCommand 回退: 非安全上下文(非 https / file)或 clipboard API 被拒时使用 */
+function copyTextFallback(text: string): void {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+}
+
 export function copyText(text: string): void {
   if (platform?.copyText) {
     platform.copyText(text);
     return;
   }
+  // 注意: navigator.clipboard.writeText() 返回 Promise, 同步 try/catch 接不住
+  // 异步 reject —— 权限被拒时旧写法会静默丢弃, 根本走不到回退分支。
+  // 两种情况都要覆盖: API 不存在(同步抛)与 Promise reject(异步)。
+  const clipboard = navigator.clipboard;
+  if (!clipboard?.writeText) {
+    copyTextFallback(text);
+    return;
+  }
   try {
-    navigator.clipboard.writeText(text);
+    clipboard.writeText(text).catch(() => copyTextFallback(text));
   } catch {
-    // fallback: textarea copy
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
+    copyTextFallback(text);
   }
 }
 
-export function copyImage(dataUrl: string): void {
+/** 复制图片到剪贴板(仅平台支持); 浏览器无对等 API, 降级为下载
+ *  浏览器不静默丢弃, 否则按钮点击后毫无反应 */
+export function copyImage(dataUrl: string, filename = 'image.png'): void {
   if (platform?.copyImage) {
     platform.copyImage(dataUrl);
     return;
   }
-  console.warn('[fallback] copyImage not supported in browser');
+  const a = document.createElement('a');
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 // 屏幕截图
