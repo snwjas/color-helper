@@ -102,12 +102,12 @@ pnpm run test:run
 
 | 技术 | 用途 |
 |------|------|
-| React 18 | UI 框架 |
+| React 19 | UI 框架 |
 | TypeScript 5 | 类型安全 |
 | Vite 8 | 构建工具（rolldown + oxc + lightningcss） |
 | Vitest 4 | 测试框架（happy-dom 环境） |
-| MUI 5 | UI 组件库 |
-| chroma-js | 颜色空间转换与计算 |
+| MUI 7 | UI 组件库（Emotion 引擎，`@emotion/cache` / `@emotion/css` 为显式 peer） |
+| chroma-js 3 | 颜色空间转换与计算 |
 | iro.js | 色轮选择器 |
 ## 核心功能说明
 

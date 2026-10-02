@@ -21,6 +21,7 @@
 - 渐变色 / 图片色卡 / AI 配色三页改为懒加载
 - 构建链升级至 vite 8 + vitest 4，`pnpm audit` 归零
 - 环境要求提升至 Node 22，锁定 pnpm 版本
+- chroma-js 升到 3，MUI 升到 7（补装 `@emotion/cache`、`@emotion/css`），React 升到 19
 
 ### 新增
 
