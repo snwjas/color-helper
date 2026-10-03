@@ -63,9 +63,16 @@ export const db = {
     }
   },
 
-  put(doc: any): { ok: boolean; id: string; rev?: string; error?: string } {
+  put(doc: any): { ok: boolean; id: string; rev?: string; error?: unknown } {
     if (platform?.db) {
-      return platform.db.put(doc);
+      // 平台分支返回 DbReturn(ok 可选、error 是布尔), 归一化成与降级分支一致的形状
+      const r = platform.db.put(doc);
+      return {
+        ok: r.ok !== false && !r.error,
+        id: r.id,
+        rev: r.rev,
+        error: r.error ? (r.message ?? r.name ?? 'db.put failed') : undefined,
+      };
     }
     try {
       const id = doc._id;
@@ -73,19 +80,23 @@ export const db = {
       const rev = existing?._rev ? String(parseInt(existing._rev || '0') + 1) : '1';
       const toSave = { ...doc, _rev: rev };
       localStorage.setItem(`${STORAGE_PREFIX}db_${id}`, JSON.stringify(toSave));
-      return { ok: true, id, rev };
+      return { ok: true, id, rev, error: undefined };
     } catch (e: any) {
       return { ok: false, id: doc._id, error: e.message };
     }
   },
 
-  remove(doc: any): { ok: boolean; error?: string } {
+  remove(doc: any): { ok: boolean; error?: unknown } {
     if (platform?.db) {
-      return platform.db.remove(doc);
+      const r = platform.db.remove(doc);
+      return {
+        ok: r.ok !== false && !r.error,
+        error: r.error ? (r.message ?? r.name ?? 'db.remove failed') : undefined,
+      };
     }
     try {
       localStorage.removeItem(`${STORAGE_PREFIX}db_${doc._id}`);
-      return { ok: true };
+      return { ok: true, error: undefined };
     } catch (e: any) {
       return { ok: false, error: e.message };
     }
@@ -172,9 +183,12 @@ export function copyImage(dataUrl: string, filename = 'image.png'): void {
 }
 
 // 屏幕截图
-export function screenCapture(callback: (imagePath: string) => void): void {
-  if ((platform as any)?.screenCapture) {
-    (platform as any).screenCapture(callback);
+// 回调第二参 bounds 仅 Windows / Linux 有值(macOS 为 undefined)
+export function screenCapture(
+  callback: (imgBase64: string, bounds?: { x: number; y: number; width: number; height: number }) => void,
+): void {
+  if (platform?.screenCapture) {
+    platform.screenCapture(callback);
     return;
   }
   console.warn('[fallback] screenCapture not supported in browser');
@@ -230,22 +244,31 @@ export function onPluginOut(callback: () => void): void {
   }
 }
 
-//  AI API 
-// 调用方式: platform.ai({model:"doubao-1.5-pro-32k", messages:[...]})
-// 返回 Promise<{content: string}>
+//  AI API
+// 调用方式: platform.ai({ messages: [...] }), 一般不要传 model
+// 返回 Promise<{ role, content?: string, reasoning_content?: string }>
 
 export function isAIAvailable(): boolean {
-  return !!(platform as any)?.ai && typeof (platform as any).ai === 'function';
+  return !!platform?.ai && typeof platform.ai === 'function';
 }
 
-export async function aiChat(messages: { role: string; content: string }[], model: string = 'doubao-1.5-pro-32k'): Promise<{ content: string }> {
+/**
+ * @param model 留空时宿主会选用用户已配置的默认模型(本地供应商优先)。
+ *   传了宿主解析不出来的 ID 会直接报「未找到 AI 模型配置」, 所以一般不要传。
+ *   确需指定时, 用 `allAiModels()` 取列表并回传其中的 id / value。
+ */
+export async function aiChat(
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  model?: string,
+): Promise<{ role?: string; content?: string }> {
   if (!isAIAvailable()) {
     throw new Error('当前版本不支持 AI 功能');
   }
-  return (platform as any).ai({ model, messages });
+  return platform!.ai({ model, messages });
 }
 
 // 文件对话框
+// 宿主侧弹窗是异步的, 返回值可能是 undefined, 调用方必须容错。
 export function showOpenDialog(options: any): string[] | undefined {
   if (platform?.showOpenDialog) {
     return platform.showOpenDialog(options);

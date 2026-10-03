@@ -28,7 +28,7 @@ describe('getColorAttr: tag 分类', () => {
 });
 
 describe('getColorAttr: dark 与统一判据一致', () => {
-  it('等于 isDarkColor(本轮已接入统一判据)', () => {
+  it('等于 isDarkColor(与全局统一判据一致)', () => {
     const samples = [
       '#000000', '#ffffff', '#808080', '#E91E63', '#336699', '#C4C4C4',
       '#FFF799', '#B6A014', '#D5EBE1', '#80A492', '#FFF', '#123456',

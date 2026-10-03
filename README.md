@@ -48,7 +48,7 @@ pnpm run build
 # 预览构建结果
 pnpm run preview
 
-# 运行测试（8 个文件 / 215 条断言）
+# 运行测试（8 个文件 / 405 条断言）
 pnpm run test:run
 ```
 
@@ -92,7 +92,7 @@ pnpm run test:run
 ├── vite.config.ts           # Vite 配置
 ├── vitest.config.ts         # Vitest 配置
 ├── vite-env.d.ts            # Vite 客户端类型引用
-├── tests/                   # 测试（8 个文件 / 215 条断言）
+├── tests/                   # 测试（8 个文件 / 405 条断言）
 ├── tsconfig.json            # TypeScript 配置
 ├── tsconfig.node.json       # Node 侧 TS 配置
 └── package.json             # 项目配置
@@ -121,7 +121,7 @@ pnpm run test:run
 
 ### 图片色卡
 
-从图片中提取主要颜色，支持截图、本地图片导入，使用中位切分（Median Cut）量化算法进行颜色聚类，可生成色卡图片并复制导出。
+从图片中提取主要颜色，支持截图、本地图片导入，使用中位切分（Median Cut）量化算法进行颜色聚类，可生成色卡图片并复制导出。四种色卡版式在 `pages/ImagePalettePage.tsx` 的 `renderColorCard` 里绘制，改动后需同步该函数上方的版式说明。
 
 ### UI 色卡
 
@@ -138,3 +138,5 @@ pnpm run test:run
 ### 平台适配
 
 通过 `utils/platform.ts` 统一适配层，支持插件平台 API（屏幕取色、截图、剪贴板、AI、存储等），同时在浏览器环境中提供 fallback 实现，确保独立运行时功能可用。
+
+`window.platform` 的类型声明在 `types/index.ts`，逐条对齐官方 `ztools.api.d.ts`（`@ztools-center/ztools-api-types`）。**改动适配层前请先核对官方 d.ts**，不要凭印象改签名。

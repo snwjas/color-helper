@@ -3,17 +3,12 @@ import chroma from 'chroma-js';
 /**
  * 颜色对比工具
  *
- * 历史遗留说明: 本文件原先是一个通用颜色工具库(约 330 行), 其中 17 个导出
- * 无任何调用方, 且其中若干存在缺陷(lightenColor 的 amount*10 缩放、
- * extractColorsFromImage 缺 onerror 导致 Promise 永不 settle、hslToHex 的
- * 兜底分支不可达等)。这些死代码已删除, 相关能力分别由下列位置承担:
+ * 只保留被使用的深浅判定与文字配色函数, 其余能力分别在:
  *
  * - 图片取色        -> pages/ImagePalettePage.tsx + utils/quantize.ts (Median Cut)
  * - 色卡保存        -> pages/ImagePalettePage.tsx handleExport + public/preload.cjs
  * - HSL/格式转换    -> pages/ColorPage.tsx
  * - 渐变 CSS        -> pages/GradientsPage.tsx
- *
- * 现仅保留真正被使用的深浅判定与文字配色函数。
  */
 
 /** WCAG 2.x 相对亮度 */
@@ -32,7 +27,7 @@ function contrastRatio(l1: number, l2: number): number {
  * 判断颜色是否为深色 —— 即"该底色上应当使用白字"
  *
  * 采用 WCAG 对比度做判定(比较白/黑哪个对比度更高), 等价于亮度阈值
- * luminance < 0.1791。而非此前全项目混用的 lab.l < 70 / < 80 两套阈值。
+ * luminance < 0.1791。
  * 判定依据: 相对亮度 0 与 1 对黑/白的对比度相等 => L = sqrt(0.05*1.05)-0.05
  */
 export function isDarkColor(hex: string): boolean {
@@ -41,7 +36,7 @@ export function isDarkColor(hex: string): boolean {
 }
 
 /**
- * 判断颜色是否为浅色(与 isDarkColor 严格互补, 不再是独立阈值)
+ * 判断颜色是否为浅色(与 isDarkColor 严格互补)
  */
 export function isLightColor(color: string): boolean {
   return !isDarkColor(color);

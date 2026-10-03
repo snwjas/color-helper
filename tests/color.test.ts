@@ -26,7 +26,7 @@ describe('isDarkColor / isLightColor 严格互补', () => {
     expect(isDarkColor('#C4C4C4')).toBe(false);
   });
 
-  it('对所有取样颜色严格互补(不再是两套独立阈值)', () => {
+  it('对所有取样颜色严格互补(同一判据取反)', () => {
     for (let r = 0; r < 256; r += 17) {
       for (let g = 0; g < 256; g += 17) {
         for (let b = 0; b < 256; b += 17) {
@@ -85,7 +85,7 @@ describe('文字配色派生函数与判据一致', () => {
   it('getContrastColor 与 textColorFor 同一判据(字面量不同: 3位 vs 6位)', () => {
     // 两者返回的字面量不同 —— textColorFor 是 '#fff' / '#000',
     // getContrastColor 是 '#FFFFFF' / '#000000'。这里比较的是"选黑还是选白",
-    // 不是字符串本身(该差异是历史遗留, 不属于本轮修复范围)
+    // 不是字符串本身
     for (const hex of ['#000000', '#FFFFFF', '#336699', '#808080', '#E91E63', '#C4C4C4']) {
       expect(chroma(getContrastColor(hex)).hex()).toBe(chroma(textColorFor(hex)).hex());
     }

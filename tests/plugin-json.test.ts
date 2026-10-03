@@ -3,14 +3,18 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
- * public/plugin.json 的颜色匹配正则 —— 本轮修过, 最需要上锁
+ * public/plugin.json 的颜色匹配正则 —— 最需要上锁的地方
  *
- * 修复前的缺陷: 裸 hex 分支 `^[a-f0-9]{6}$` 没有要求"必须同时含数字和字母",
- * 导致 decade / facade / accede / beaded / 123456 / 000000 / ffffff 全被误判为颜色。
- * 现在加了两个 lookahead 要求同时出现数字与 a-f 字母。
+ * 两条硬约束:
+ *   1. 裸 hex 分支必须要求"同时含数字和 a-f 字母", 只用 `^[a-f0-9]{6}$` 会把
+ *      decade / facade / accede / beaded 这类英文单词和 123456 / 000000 / ffffff
+ *      一起误判成颜色。故加两个 lookahead。
+ *   2. 大小写不敏感必须写在 pattern 本身([a-fA-F0-9] / [rR][gG][bB] ...),
+ *      不能靠结尾的 /i —— 宿主在主输入框边打边搜时会丢光 flags,
+ *      依赖 flag 的话 `#FFF` / `FF0000` 在主输入框里根本不匹配。
  */
 
-interface PluginCmd { type?: string; match?: string; maxLength?: number; label?: string }
+interface PluginCmd { type?: string; match?: string; minLength?: number; maxLength?: number; label?: string }
 interface PluginFeature { code: string; cmds: Array<string | PluginCmd> }
 
 const plugin = JSON.parse(
@@ -33,73 +37,147 @@ function toRegExp(match: string): RegExp {
   return new RegExp(m[1]!, m[2]!);
 }
 
+/**
+ * 模拟宿主"边打边搜"分支: parseMatchPattern 的 preserveFlags 为 false, flags 被整个丢掉。
+ */
+function toRegExpWithoutFlags(match: string): RegExp {
+  const m = match.match(/^\/(.*)\/([a-z]*)$/s);
+  if (!m) throw new Error(`match 不是 /.../flags 形式: ${match}`);
+  return new RegExp(m[1]!);
+}
+
 const colorRe = toRegExp(regexCmd('color').match!);
 const aiRe = toRegExp(regexCmd('ai').match!);
+/** flags 被丢掉后的版本 —— 主输入框实际用到的就是它 */
+const colorReNoFlags = toRegExpWithoutFlags(regexCmd('color').match!);
+const aiReNoFlags = toRegExpWithoutFlags(regexCmd('ai').match!);
+
+/** 全部应当匹配的用例, 供两组正则共用 */
+const SHOULD_MATCH = [
+  '#fff',
+  '#FFF',
+  '#ffffff',
+  '#FFFFFF',
+  '#11223344',
+  '#11223344'.toUpperCase(),
+  'ff0000',
+  'FF0000',
+  'a1b2c3',
+  'A1B2C3',
+  '255, 0, 0',
+  '255 0 0',
+  'rgb(1,2,3)',
+  'RGB(1,2,3)',
+  'rgb(1, 2, 3)',
+  'rgba(1,2,3,0.5)',
+  'RGBA(1,2,3,0.5)',
+  'hsl(120, 50%, 50%)',
+  'HSL(120, 50%, 50%)',
+  'hsla(120, 50%, 50%, 0.5)',
+  'hsv(120, 50%, 50%)',
+  'hsi(120, 50%, 50%)',
+  'hsl(120deg, 50%, 50%)',
+  '#fff;',
+];
+
+const SHOULD_REJECT = [
+  // 裸 hex 分支的历史假阳性 —— 修过的核心缺陷
+  'decade',
+  'facade',
+  'accede',
+  'beaded',
+  '123456',
+  '000000',
+  'ffffff',
+  'DECADE',
+  'FACADE',
+  // 其它非法输入
+  '#gggggg',
+  '#GGGGGG',
+  '',
+  'rgb(1,2,3',
+  'rgb(1,2,3)extra',
+  'rgb(255, 0, 0,)',
+  'hsl(120, 50%, 50%%',
+  'rgb(999,0,0)',
+  '1,2',
+  '1,2,3,4',
+  '999,999,999',
+  '#ffff',
+  'the cafe',
+  'the CAFE',
+  'red',
+  '##fff',
+  '#ff',
+];
 
 describe('两份颜色正则必须一致', () => {
   it('color(cmds[2]) 与 ai(cmds[1]) 的 match 逐字节相同', () => {
     expect(regexCmd('color').match).toBe(regexCmd('ai').match);
   });
 
-  it('maxLength 也一致', () => {
-    expect(regexCmd('color').maxLength).toBe(regexCmd('ai').maxLength);
+  it('minLength 也一致', () => {
+    expect(regexCmd('color').minLength).toBe(regexCmd('ai').minLength);
+  });
+
+  it('**不使用 maxLength** —— 这不是 RegexCmd 的字段, 写了也不生效', () => {
+    // 官方 RegexCmd 只有 { type, minLength, match, label },
+    // maxLength 只存在于 OverCmd / FilesCmd。
+    expect(regexCmd('color').maxLength).toBeUndefined();
+    expect(regexCmd('ai').maxLength).toBeUndefined();
+  });
+
+  it('**不以 /i 收尾** —— 大小写不敏感必须写在 pattern 里', () => {
+    // 一旦有人把 /i 加回来当"保险", 这条会红, 提醒他 pattern 已经自足了
+    const m = regexCmd('color').match!;
+    expect(m.match(/^\/(.*)\/([a-z]*)$/s)![2]).toBe('');
+  });
+
+  it('**pattern 里不含裸的小写关键字** —— rgb/hsl/deg 等都必须写成 [rR][gG][bB]', () => {
+    const body = regexCmd('color').match!.replace(/^\/|\/$/g, '');
+    // 先摘掉括号字符类里的内容, 再看剩下的部分有没有裸露的 rgb/hsl/deg
+    const outsideClasses = body.replace(/\[[^\]]*\]/g, '□');
+    expect(outsideClasses).not.toMatch(/rgb|hsl|hsv|hsi|deg/);
   });
 });
 
 describe.each([
-  ['color', colorRe],
-  ['ai', aiRe],
+  ['color(带 flags)', colorRe],
+  ['ai(带 flags)', aiRe],
+  ['**color(flags 被宿主丢掉, 即边打边搜)**', colorReNoFlags],
+  ['**ai(flags 被宿主丢掉)**', aiReNoFlags],
 ])('%s 功能正则', (_name, re) => {
-  it.each([
-    '#fff',
-    '#FFF',
-    '#ffffff',
-    '#FFFFFF',
-    '#11223344',
-    'ff0000',
-    'a1b2c3',
-    '255, 0, 0',
-    '255 0 0',
-    'rgb(1,2,3)',
-    'rgb(1, 2, 3)',
-    'rgba(1,2,3,0.5)',
-    'hsl(120, 50%, 50%)',
-    'hsla(120, 50%, 50%, 0.5)',
-    'hsv(120, 50%, 50%)',
-    '#fff;',
-  ])('应当匹配: %s', (input) => {
+  it.each(SHOULD_MATCH)('应当匹配: %s', (input) => {
     expect(re.test(input)).toBe(true);
   });
 
-  it.each([
-    // 裸 hex 分支的历史假阳性 —— 本轮修复的核心
-    'decade',
-    'facade',
-    'accede',
-    'beaded',
-    '123456',
-    '000000',
-    'ffffff',
-    // 其它非法输入
-    '#gggggg',
-    '',
-    'rgb(1,2,3',
-    'rgb(1,2,3)extra',
-    'rgb(255, 0, 0,)',
-    'hsl(120, 50%, 50%%',
-    'rgb(999,0,0)',
-    '1,2',
-    '1,2,3,4',
-    '999,999,999',
-    '#ffff',
-    'the cafe',
-    'red',
-  ])('应当拒绝: %s', (input) => {
+  it.each(SHOULD_REJECT)('应当拒绝: %s', (input) => {
     expect(re.test(input)).toBe(false);
   });
+});
 
-  it('正则无 g/y 标志, lastIndex 不会导致交替调用结果漂移', () => {
+describe('边打边搜与粘贴/快捷键两条路径结果必须一致', () => {
+  // 边打边搜(preserveFlags: false 丢光 flags)与粘贴/快捷键两条路径, 判定必须一致
+  it.each([...SHOULD_MATCH, ...SHOULD_REJECT])(
+    'preserveFlags 两分支对 %s 的判定相同',
+    (input) => {
+      expect(colorReNoFlags.test(input)).toBe(colorRe.test(input));
+      expect(aiReNoFlags.test(input)).toBe(aiRe.test(input));
+    },
+  );
+
+  it('丢 flag 时这几个样本必须仍然匹配', () => {
+    for (const s of ['#FFF', '#FFFFFF', 'FF0000', 'A1B2C3', 'RGB(1,2,3)', 'HSL(120, 50%, 50%)']) {
+      expect(colorReNoFlags.test(s)).toBe(true);
+    }
+  });
+});
+
+describe('正则标志', () => {
+  it('无 g/y 标志, lastIndex 不会导致交替调用结果漂移', () => {
     expect(colorRe.global).toBe(false);
     expect(colorRe.sticky).toBe(false);
+    expect(colorReNoFlags.global).toBe(false);
+    expect(colorReNoFlags.sticky).toBe(false);
   });
 });

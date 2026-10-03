@@ -25,7 +25,7 @@ function expectPoint(
   expect(actual.by).toBeCloseTo(end[1]!, 2);
 }
 
-describe('calculateGradientLine 基线值(REVIEW01 逐条验证过)', () => {
+describe('calculateGradientLine 基线值', () => {
   it.each([
     [500, 500, 135, [0, 0], [500, 500], 707.11],
     [500, 500, 0, [250, 500], [250, 0], 500],

@@ -41,47 +41,100 @@ export interface JapanColorItem {
   jname: string;
 }
 
+/** 官方 getPath 允许的路径名 */
+export type PlatformPathName =
+  | 'home' | 'appData' | 'userData' | 'cache' | 'temp' | 'exe' | 'module'
+  | 'desktop' | 'documents' | 'downloads' | 'music' | 'pictures' | 'videos'
+  | 'logs' | 'pepperFlashSystemPlugin';
+
 // 平台 API 类型声明
+//
+// 手写声明, 权威依据是官方 ztools.api.d.ts (@ztools-center/ztools-api-types)。
+// 只声明本项目实际用到的成员, 未用到的部分请直接对照官方 d.ts。
+//
+// 改动前请先核对官方 d.ts 与宿主实现, 不要凭印象改签名。
 declare global {
+  /** 官方 DbDoc: 文档必须带 _id, _rev 由平台维护 */
+  interface PlatformDbDoc { _id: string; _rev?: string; [k: string]: any }
+
+  /** 官方 DbReturn —— db.put / db.remove 的同步返回 */
+  interface PlatformDbReturn {
+    id: string;
+    rev?: string;
+    ok?: boolean;
+    error?: boolean;
+    name?: string;
+    message?: string;
+  }
+
+  /** onPluginEnter 回调的 action */
+  interface PlatformEnterAction {
+    code: string;
+    type: string;
+    payload: any;
+    option?: any;
+  }
+
   interface Window {
     platform?: {
-      onPluginEnter: (callback: (action: { code: string; type: string; payload: any }) => void) => void;
-      onPluginOut: (callback: () => void) => void;
+      onPluginEnter: (callback: (action: PlatformEnterAction) => void) => void;
+      /** 回调参数是 processExit(进程是否退出) */
+      onPluginOut: (callback: (processExit: boolean) => void) => void;
       dbStorage: {
         getItem: (key: string) => any;
         setItem: (key: string, value: any) => void;
         removeItem: (key: string) => void;
       };
-      copyText: (text: string) => void;
-      copyImage: (base64: string) => void;
-      showNotification: (title: string, body: string) => void;
-      setSubInput: (callback: (data: { text: string }) => void, placeholder: string, isFocus: boolean) => void;
-      removeSubInput: () => void;
-      hideMainWindow: () => void;
-      showMainWindow: () => void;
-      outPlugin: () => void;
+      copyText: (text: string) => boolean;
+      /** img 可以是 base64 dataURL、Uint8Array 或图片路径 */
+      copyImage: (img: string | Uint8Array) => boolean;
+      /** 第一参是通知正文, featureName 用于标识来源功能 */
+      showNotification: (body: string, featureName?: string) => void;
+      setSubInput: (
+        onChange: (input: { text: string }) => void,
+        placeholder?: string,
+        isFocus?: boolean,
+      ) => boolean;
+      removeSubInput: () => boolean;
+      hideMainWindow: (isRestorePreWindow?: boolean) => boolean;
+      showMainWindow: () => boolean;
+      outPlugin: (isKill?: boolean) => boolean;
+      /** 宿主侧为异步弹窗, 返回值可能为 undefined, 调用方需容错 */
       showSaveDialog: (options: {
-        title: string;
-        defaultPath: string;
-        buttonLabel: string;
-        filters: Array<{ extensions: string[]; name: string }>;
+        title?: string;
+        defaultPath?: string;
+        buttonLabel?: string;
+        filters?: Array<{ extensions: string[]; name: string }>;
+        properties?: string[];
       }) => string | undefined;
+      /** 宿主侧为异步弹窗, 返回值可能为 undefined, 调用方需容错 */
       showOpenDialog: (options: {
         title?: string;
+        defaultPath?: string;
+        buttonLabel?: string;
         filters?: Array<{ name: string; extensions: string[] }>;
         properties?: string[];
       }) => string[] | undefined;
-      shellShowItemInFolder: (path: string) => void;
-      getPath: (name: string) => string;
-      pickColor: () => string;
-      screenColorPick: (callback: (result: { hex: string; rgb: string }) => void) => void;
-      screenCapture: (callback: (data: string) => void) => void;
+      shellShowItemInFolder: (fullPath: string) => void;
+      getPath: (name: PlatformPathName) => string;
+      screenColorPick: (callback: (color: { hex: string; rgb: string }) => void) => void;
+      /** imgBase64 是 data URL; bounds 仅 Windows / Linux 有值, macOS 为 undefined */
+      screenCapture: (
+        callback: (imgBase64: string, bounds?: { x: number; y: number; width: number; height: number }) => void,
+      ) => void;
       db: {
-        put: (doc: any) => any;
-        get: (id: string) => any;
-        remove: (id: any) => any;
-        allDocs: (key?: string) => any[];
+        put: (doc: PlatformDbDoc) => PlatformDbReturn;
+        get: (id: string) => PlatformDbDoc | null;
+        remove: (doc: string | PlatformDbDoc) => PlatformDbReturn;
+        allDocs: (key?: string) => PlatformDbDoc[];
       };
+      /** model 留空时由宿主选用用户已配置的默认模型 */
+      ai: (option: {
+        model?: string;
+        messages: Array<{ role: 'system' | 'user' | 'assistant'; content?: string }>;
+      }) => Promise<{ role: string; content?: string; reasoning_content?: string; abort?: () => void }>;
+      /** 列出用户已配置的模型, 其 id / value 可回传给 ai() 的 model */
+      allAiModels: () => Promise<Array<{ id: string; label: string; description: string; icon: string; cost: number }>>;
     };
     services?: {
       saveColorCard: (buffer: ArrayBuffer) => Promise<void>;

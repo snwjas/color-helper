@@ -2,7 +2,6 @@
  * 渐变几何计算
  *
  * 从 pages/GradientsPage.tsx 抽出 —— 纯数学、零依赖, 独立成模块便于回归测试。
- * 这里的公式是 REVIEW01 修正过的(原实现按半对角线算, 导出图与预览不一致),
  * 回归风险最高, 因此配了 tests/gradient-geometry.test.ts 专门锁住。
  */
 
