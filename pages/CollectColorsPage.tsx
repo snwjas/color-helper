@@ -15,24 +15,16 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
 import ColorizeIcon from '@mui/icons-material/Colorize';
-import chroma from 'chroma-js';
 import { db, dbStorage, screenColorPick } from '../utils/platform';
 import { isDarkColor } from '../utils/color';
+import { COLLECT_SORT_KEY, type CollectColor, collectDocId, normalizeHex } from '../utils/collect';
 
 /**
  * CollectColorsPage - 收藏颜色管理页面
- * 
+ *
  * 管理用户收藏的颜色，支持分组、拖拽排序、添加/删除
  * 数据持久化到 dbStorage
  */
-
-interface CollectColor {
-  _id: string;
-  _rev?: string;
-  name: string;
-  color: string;
-  dark?: boolean;
-}
 
 // 编辑表单对话框
 interface FormDialogProps {
@@ -68,19 +60,18 @@ class CollectFormDialog extends Component<FormDialogProps, FormDialogState> {
     this.props.formData!.name = name;
     const isEdit = !!this.props.formData!._id;
     if (!isEdit) {
-      const parsed = chroma.valid(color) ? chroma(color) : null;
-      if (!parsed) {
+      const hex = normalizeHex(color);
+      if (!hex) {
         this.setState({ error: "错误的色值" });
         return;
       }
-      const hex = parsed.hex();
-      const docId = "color/" + hex.substring(1).toLowerCase();
+      const docId = collectDocId(hex);
       if (db.get(docId)) {
         this.setState({ error: "该颜色已收藏!" });
         return;
       }
       this.props.formData!._id = docId;
-      this.props.formData!.color = hex.toUpperCase();
+      this.props.formData!.color = hex;
       this.props.formData!.dark = isDarkColor(hex);
     }
     const result = db.put(this.props.formData!);
@@ -248,7 +239,7 @@ class CollectColorsPage extends Component<{ onColorClick: (e: any) => void }, Co
       if (!doc || typeof doc._id !== "string") return;
       if (doc._id.startsWith("color/")) {
         colors.push(doc);
-      } else if (doc._id === "collectsort") {
+      } else if (doc._id === COLLECT_SORT_KEY) {
         sortDoc = doc;
       } else if (doc._id === "markercolor") {
         markerDoc = doc;

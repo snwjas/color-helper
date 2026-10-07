@@ -47,7 +47,6 @@ describe('quantize 两个分支', () => {
 });
 
 describe('回归重点: palette() / map() 的返回形状', () => {
-  // 当年的类型错误正出在这里 —— palette 曾标注成 number[]、map 曾标注成 number
   it('palette() 每项是长度 3 的数组, 元素在 0..255', () => {
     const palette = quantize(referencePixels(), 10)!.palette();
     expect(palette.length).toBeGreaterThan(0);

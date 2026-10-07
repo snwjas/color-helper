@@ -5,16 +5,13 @@
  * - 解耦业务代码与平台 API
  */
 
-// 平台实例
 const platform = window.platform;
 
-//  localStorage key 前缀 
 const STORAGE_PREFIX = 'color_helper_';
 
-// 环境检测
 export const isPlatform = !!platform;
 
-//  dbStorage 适配 
+//  dbStorage 适配
 export const dbStorage = {
   getItem(key: string): any {
     if (platform?.dbStorage) {
@@ -152,9 +149,9 @@ export function copyText(text: string): void {
     platform.copyText(text);
     return;
   }
-  // 注意: navigator.clipboard.writeText() 返回 Promise, 同步 try/catch 接不住
-  // 异步 reject —— 权限被拒时旧写法会静默丢弃, 根本走不到回退分支。
-  // 两种情况都要覆盖: API 不存在(同步抛)与 Promise reject(异步)。
+  // navigator.clipboard.writeText() 返回 Promise: API 不存在时同步抛、
+  // 权限被拒时异步 reject —— 同步 try/catch 只接得住前者,
+  // 两处都要落到 copyTextFallback 才算覆盖完整。
   const clipboard = navigator.clipboard;
   if (!clipboard?.writeText) {
     copyTextFallback(text);

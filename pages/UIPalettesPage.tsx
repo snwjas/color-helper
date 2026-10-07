@@ -18,7 +18,6 @@ import type {
  * 点击色块可复制颜色值
  */
 
-// FlatUI子组件
 class FlatUIColors extends PureComponent<{ onColorClick: (e: any) => void; data: FlatUIColorCategory[] }> {
   render() {
     return (
@@ -48,7 +47,6 @@ class FlatUIColors extends PureComponent<{ onColorClick: (e: any) => void; data:
   }
 }
 
-//  Fluent子组件
 class FluentColors extends PureComponent<{ onColorClick: (e: any) => void; data: UIColorCategory[] }> {
   render() {
     return (
@@ -75,7 +73,6 @@ class FluentColors extends PureComponent<{ onColorClick: (e: any) => void; data:
   }
 }
 
-//  OpenColor子组件
 class OpenColors extends PureComponent<{ onColorClick: (e: any) => void; data: UIColorCategory[] }> {
   render() {
     return (
@@ -97,6 +94,7 @@ class OpenColors extends PureComponent<{ onColorClick: (e: any) => void; data: U
                       style={{ backgroundColor: color }}
                       onClick={this.props.onColorClick}
                     >
+                      {/* 色阶按浅→深排列: 前 5 档是浅色档配深字, 其余深色档配白字 */}
                       <span style={{ color: ci < 5 ? '#000' : '#FFF' }}>{color.substr(1)}</span>
                     </div>
                   </div>
@@ -110,7 +108,6 @@ class OpenColors extends PureComponent<{ onColorClick: (e: any) => void; data: U
   }
 }
 
-// AntDesign子组件
 class AntDesignColors extends PureComponent<{ onColorClick: (e: any) => void; data: UIColorCategory[] }> {
   render() {
     return (
@@ -132,6 +129,7 @@ class AntDesignColors extends PureComponent<{ onColorClick: (e: any) => void; da
                       style={{ backgroundColor: color }}
                       onClick={this.props.onColorClick}
                     >
+                      {/* 色阶按浅→深排列: 前 5 档是浅色档配深字, 其余深色档配白字 */}
                       <span style={{ color: ci < 5 ? '#000' : '#FFF' }}>{color.substr(1)}</span>
                     </div>
                   </div>
@@ -145,7 +143,6 @@ class AntDesignColors extends PureComponent<{ onColorClick: (e: any) => void; da
   }
 }
 
-//  MaterialDesign子组件
 class MaterialDesignColors extends PureComponent<{ onColorClick: (e: any) => void; data: MaterialColorCategory[] }> {
   render() {
     return (
@@ -173,7 +170,8 @@ class MaterialDesignColors extends PureComponent<{ onColorClick: (e: any) => voi
                         style={{ backgroundColor: color }}
                         onClick={this.props.onColorClick}
                       >
-                        <span style={{ color: ci < 5 ? '#000' : '#FFF' }}>{color.substr(1)}</span>
+                      {/* 色阶按浅→深排列: 前 5 档是浅色档配深字, 其余深色档配白字 */}
+                      <span style={{ color: ci < 5 ? '#000' : '#FFF' }}>{color.substr(1)}</span>
                       </div>
                     ) : <div />}
                   </div>
@@ -187,7 +185,6 @@ class MaterialDesignColors extends PureComponent<{ onColorClick: (e: any) => voi
   }
 }
 
-// 主组件
 interface UIPalettesState {
   ui: string;
 }
@@ -226,6 +223,7 @@ class UIPalettesPage extends Component<{ onColorClick: (e: any) => void }, UIPal
     }
   }
 
+  // Tab 切换只更新 state, 离开页面时才持久化: 避免每次点 Tab 都写一次 db
   componentWillUnmount() {
     const saved = db.get("uicolor") || { _id: "uicolor", ui: "flat" };
     if (saved.ui !== this.state.ui) {

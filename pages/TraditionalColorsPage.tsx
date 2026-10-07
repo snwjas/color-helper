@@ -14,9 +14,9 @@ import type { ChinaColorCategory, JapanColorItem as JapanColorItemData } from '.
 
 /**
  * TraditionalColorsPage - 传统色页面
- * 
- * 展示中国传统色/日本传统色色板，支持搜索和收藏
- * 点击色块可复制颜色值，长按可收藏/取消收藏
+ *
+ * 展示中国传统色/日本传统色色板，支持搜索和按色系筛选
+ * 点击色块可复制颜色值
  */
 
 // 颜色属性分类(tag + dark) —— 导出以供回归测试
@@ -40,7 +40,7 @@ export function getColorAttr(color: string): { tag: string; dark: boolean } {
   return { tag, dark };
 }
 
-// AD数组
+// 色系筛选条: 每个色系一枚代表色, id 与 getColorAttr 的 tag 对应
 const filterColors = [
   { id: "red", color: "#D7003A" },
   { id: "orange", color: "#EE7800" },
@@ -54,8 +54,7 @@ const filterColors = [
   { id: "black", color: "#333333" },
 ];
 
-// 预处理颜色数据
-// 中国传统色数据: nc = JSON.parse(...) - 按节气分组
+// 中国传统色: 按节气分组
 interface ChinaColorItem {
   name: string;
   color: string;
@@ -67,7 +66,7 @@ interface ChinaColorGroup {
   colors: ChinaColorItem[];
 }
 
-// 日本传统色数据: tc = JSON.parse(...) - 扁平列表
+// 日本传统色: 扁平列表
 interface JapanColorItem {
   name: string;
   jname: string;

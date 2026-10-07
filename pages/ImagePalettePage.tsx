@@ -87,7 +87,6 @@ function getColor(img: HTMLImageElement, quality: number = 10): number[] | null 
  * @param quality 采样间隔，默认10
  */
 function getPalette(img: HTMLImageElement, colorCount?: number, quality?: number): number[][] | null {
-  // 参数校验 -
   let count = colorCount;
   let q = quality;
   if (count !== undefined && Number.isInteger(count)) {
@@ -324,7 +323,7 @@ function renderColorCard(
       const dh = bgImage.height * scale;
       ctx.drawImage(bgImage, (w - dw) / 2, (h - dh) / 2, dw, dh);
     } else if (templateId === '03') {
-      // 003: 图片 cover 填充
+      // 图片 cover 填充
       const scale = Math.max(w / bgImage.width, h / bgImage.height);
       const dw = bgImage.width * scale;
       const dh = bgImage.height * scale;
@@ -835,7 +834,6 @@ function ColorCardButton({ bgImage, primaryColor, paletteColors }: ColorCardButt
   );
 }
 
-// 图片取色主页面
 interface ImagePaletteProps {
   onColorClick: (e: any) => void;
   showMessage?: (msg: string) => void;

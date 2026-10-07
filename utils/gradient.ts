@@ -1,8 +1,8 @@
 /**
  * 渐变几何计算
  *
- * 从 pages/GradientsPage.tsx 抽出 —— 纯数学、零依赖, 独立成模块便于回归测试。
- * 回归风险最高, 因此配了 tests/gradient-geometry.test.ts 专门锁住。
+ * 纯数学、零依赖的独立模块, 供 pages/GradientsPage.tsx 使用;
+ * 回归风险最高, 配了 tests/gradient-geometry.test.ts 专门锁住。
  */
 
 /**

@@ -36,7 +36,10 @@ interface AIPaletteItem {
   description: string;
 }
 
-/** 解析 AI 返回的 JSON 字符串 */
+/**
+ * 解析 AI 返回的 JSON 字符串。
+ * 提示词已要求裸 JSON, 但模型仍可能带上 ```json 围栏, 这里兜底剥掉
+ */
 function parseAIResponse(content: string): AIPaletteItem[] {
   if (content.startsWith("{")) return JSON.parse(content);
   return JSON.parse(content.replace(/^```json\n/, "").replace(/\n```$/, ""));
@@ -261,7 +264,8 @@ function ColorPickerDialog({ color, open, onClose, onSubmit }: ColorPickerDialog
   );
 }
 
-/** AI配色主页面 - 上次生成结果缓存 */
+// 模块级缓存: 页面随导航切换卸载、useState 清零, 用它保活上次的主色与生成结果;
+// 主色取随机初值是为了首次进入页面时也有非空的主色
 let lastMainColor = chroma.random().hex();
 let lastPalettes: AIPaletteItem[] = [];
 

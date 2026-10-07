@@ -11,7 +11,6 @@ function cr(l1: number, l2: number): number {
 /**
  * isDarkColor 的判据是"白字对比度 >= 黑字对比度", 解出来正是
  * luminance <= sqrt(0.05 * 1.05) - 0.05 ≈ 0.17912878474779204
- * (不是 0.5, 也不是历史上混用的 lab.l < 70 / < 80)
  */
 const LUMINANCE_THRESHOLD = Math.sqrt(0.05 * 1.05) - 0.05;
 

@@ -213,7 +213,7 @@ describe('aiChat 不能凭空塞模型 ID', () => {
     expect(Object.keys(option).sort()).toEqual(['messages', 'model']);
   });
 
-  it('不传 model 时不会出现任何豆包时代风格的遗留 ID', async () => {
+  it('不传 model 时 option 里没有硬编码的供应商模型 ID', async () => {
     const ai = vi.fn(async () => ({ role: 'assistant', content: 'ok' }));
     const p = await withPlatformAi(ai);
 

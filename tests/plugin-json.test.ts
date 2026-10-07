@@ -15,17 +15,22 @@ import { resolve } from 'node:path';
  */
 
 interface PluginCmd { type?: string; match?: string; minLength?: number; maxLength?: number; label?: string }
-interface PluginFeature { code: string; cmds: Array<string | PluginCmd> }
+interface PluginFeature { code: string; explain?: string; cmds: Array<string | PluginCmd> }
 
 const plugin = JSON.parse(
   readFileSync(resolve(__dirname, '../public/plugin.json'), 'utf-8'),
 ) as { features: PluginFeature[] };
 
-/** 取出某个功能里 type=regex 的那条命令 */
-function regexCmd(featureCode: string): PluginCmd {
+/** 取某个功能里 type=regex 的那条命令; 该功能没有 regex 命令时返回 undefined */
+function regexCmd(featureCode: string): PluginCmd | undefined {
   const feature = plugin.features.find((f) => f.code === featureCode);
   if (!feature) throw new Error(`plugin.json 里找不到 feature: ${featureCode}`);
-  const cmd = feature.cmds.find((c): c is PluginCmd => typeof c === 'object' && c.type === 'regex');
+  return feature.cmds.find((c): c is PluginCmd => typeof c === 'object' && c.type === 'regex');
+}
+
+/** 该功能必须有 regex 命令, 取不到就抛 —— 给"颜色"这条必填路径用 */
+function requiredRegexCmd(featureCode: string): PluginCmd {
+  const cmd = regexCmd(featureCode);
   if (!cmd) throw new Error(`feature ${featureCode} 里没有 regex 命令`);
   return cmd;
 }
@@ -46,11 +51,9 @@ function toRegExpWithoutFlags(match: string): RegExp {
   return new RegExp(m[1]!);
 }
 
-const colorRe = toRegExp(regexCmd('color').match!);
-const aiRe = toRegExp(regexCmd('ai').match!);
+const colorRe = toRegExp(requiredRegexCmd('color').match!);
 /** flags 被丢掉后的版本 —— 主输入框实际用到的就是它 */
-const colorReNoFlags = toRegExpWithoutFlags(regexCmd('color').match!);
-const aiReNoFlags = toRegExpWithoutFlags(regexCmd('ai').match!);
+const colorReNoFlags = toRegExpWithoutFlags(requiredRegexCmd('color').match!);
 
 /** 全部应当匹配的用例, 供两组正则共用 */
 const SHOULD_MATCH = [
@@ -81,7 +84,7 @@ const SHOULD_MATCH = [
 ];
 
 const SHOULD_REJECT = [
-  // 裸 hex 分支的历史假阳性 —— 修过的核心缺陷
+  // 裸 hex 分支最典型的假阳性: 英文单词与纯数字串
   'decade',
   'facade',
   'accede',
@@ -111,41 +114,37 @@ const SHOULD_REJECT = [
   '#ff',
 ];
 
-describe('两份颜色正则必须一致', () => {
-  it('color(cmds[2]) 与 ai(cmds[1]) 的 match 逐字节相同', () => {
-    expect(regexCmd('color').match).toBe(regexCmd('ai').match);
-  });
-
-  it('minLength 也一致', () => {
-    expect(regexCmd('color').minLength).toBe(regexCmd('ai').minLength);
-  });
-
+describe('颜色正则的硬约束', () => {
   it('**不使用 maxLength** —— 这不是 RegexCmd 的字段, 写了也不生效', () => {
     // 官方 RegexCmd 只有 { type, minLength, match, label },
     // maxLength 只存在于 OverCmd / FilesCmd。
-    expect(regexCmd('color').maxLength).toBeUndefined();
-    expect(regexCmd('ai').maxLength).toBeUndefined();
+    expect(requiredRegexCmd('color').maxLength).toBeUndefined();
   });
 
   it('**不以 /i 收尾** —— 大小写不敏感必须写在 pattern 里', () => {
     // 一旦有人把 /i 加回来当"保险", 这条会红, 提醒他 pattern 已经自足了
-    const m = regexCmd('color').match!;
+    const m = requiredRegexCmd('color').match!;
     expect(m.match(/^\/(.*)\/([a-z]*)$/s)![2]).toBe('');
   });
 
   it('**pattern 里不含裸的小写关键字** —— rgb/hsl/deg 等都必须写成 [rR][gG][bB]', () => {
-    const body = regexCmd('color').match!.replace(/^\/|\/$/g, '');
+    const body = requiredRegexCmd('color').match!.replace(/^\/|\/$/g, '');
     // 先摘掉括号字符类里的内容, 再看剩下的部分有没有裸露的 rgb/hsl/deg
     const outsideClasses = body.replace(/\[[^\]]*\]/g, '□');
     expect(outsideClasses).not.toMatch(/rgb|hsl|hsv|hsi|deg/);
+  });
+
+  it('**AI 配色不挂颜色正则** —— 与「颜色」撞同一个入口只会多出一条冗余候选', () => {
+    // 粘一个色值时彩色候选由「颜色」一条负责; AI 配色是重交互页面, 不该出现在
+    // 这种即时匹配里, 入口只留 "AI 配色" 文本命令。
+    expect(regexCmd('ai')).toBeUndefined();
+    expect(plugin.features.find((f) => f.code === 'ai')!.cmds).toEqual(['AI 配色']);
   });
 });
 
 describe.each([
   ['color(带 flags)', colorRe],
-  ['ai(带 flags)', aiRe],
   ['**color(flags 被宿主丢掉, 即边打边搜)**', colorReNoFlags],
-  ['**ai(flags 被宿主丢掉)**', aiReNoFlags],
 ])('%s 功能正则', (_name, re) => {
   it.each(SHOULD_MATCH)('应当匹配: %s', (input) => {
     expect(re.test(input)).toBe(true);
@@ -162,7 +161,6 @@ describe('边打边搜与粘贴/快捷键两条路径结果必须一致', () => 
     'preserveFlags 两分支对 %s 的判定相同',
     (input) => {
       expect(colorReNoFlags.test(input)).toBe(colorRe.test(input));
-      expect(aiReNoFlags.test(input)).toBe(aiRe.test(input));
     },
   );
 
@@ -179,5 +177,28 @@ describe('正则标志', () => {
     expect(colorRe.sticky).toBe(false);
     expect(colorReNoFlags.global).toBe(false);
     expect(colorReNoFlags.sticky).toBe(false);
+  });
+});
+
+describe('侧边栏顺序与 plugin.json 对齐', () => {
+  /**
+   * 同一个功能在插件里只该有一个排名 —— App.tsx 的 navItems 与 plugin.json 的
+   * features 各排一套的话, 改了一处忘了另一处就开始打架, 而且没人看得出来。
+   * pickercolor 是纯动作(执行后落在颜色页), 不在侧边栏里, 故排除。
+   */
+  it('navItems 的 key 序列是 features 剔除 pickercolor 后的子序列', async () => {
+    const { navItems } = await import('../App');
+    const menuCodes = plugin.features
+      .map((f) => f.code)
+      .filter((code) => code !== 'pickercolor');
+
+    expect(navItems.map((item) => item.key)).toEqual(menuCodes);
+  });
+
+  it('**侧边栏每项在 plugin.json 里都有同名页签** —— 否则点进去的 code 宿主不认', async () => {
+    const { navItems } = await import('../App');
+    const codes = new Set(plugin.features.map((f) => f.code));
+
+    navItems.forEach((item) => expect(codes.has(item.key)).toBe(true));
   });
 });

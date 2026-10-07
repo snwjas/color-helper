@@ -366,7 +366,7 @@ export function quantize(pixels: number[][], maxColors: number): CMap | SimpleCM
     throw new Error('Invalid maximum color count. It must be an integer between 1 and 256.');
   }
 
-  if (!pixels.length || maxColors < 2 || maxColors > 256) return null;
+  if (!pixels.length || maxColors < 2) return null;
 
   // 去重
   const uniquePixels: number[][] = [];
@@ -408,11 +408,11 @@ export function quantize(pixels: number[][], maxColors: number): CMap | SimpleCM
 
   /** 迭代切分: 从优先队列中取出 VBox 进行中位切分，直到达到目标数量 */
   function iterate(pq: PQueue, target: number): void {
-    let A = pq.size(); // A = E.size()
+    let A = pq.size();
     let I = 0;
 
     while (I < 1000) {
-      if (A >= target || I++ > 1000) return; // if(A>=w||I++>1e3)return
+      if (A >= target || I++ > 1000) return;
 
       const P = pq.pop();
       if (!P) return;
@@ -421,24 +421,24 @@ export function quantize(pixels: number[][], maxColors: number): CMap | SimpleCM
         const B = medianCutApply(histo, P);
         const N = B ? B[0] : null;
         const j = B && B.length >= 2 ? B[1] : null;
-        if (!N) return; // if(!N)return
+        if (!N) return;
         pq.push(N);
         if (j) {
           pq.push(j);
-          A++; // j&&(E.push(j),A++)
+          A++;
         }
       } else {
         pq.push(P);
-        I++; // I++ (only when count==0)
+        // 只有空盒(不可再切分)才推进计数: 有进展的切分不受 1000 次上限影响
+        I++;
       }
     }
   }
 
-  // 第一次切分: S(b, .75 * u) - u 是 maxColors，不是像素数！
+  // 第一轮切分目标 0.75 * maxColors(是颜色数, 不是像素数)
   iterate(pq, 0.75 * maxColors);
 
-  // 排序后放入新队列
-  // 先把 pq 中的 vbox 全部取出排序
+  // 第二轮按 count × volume 排序: 大且满的盒子优先继续切分
   const allVboxes: VBox[] = [];
   while (pq.size() > 0) {
     allVboxes.push(pq.pop()!);

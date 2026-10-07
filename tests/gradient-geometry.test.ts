@@ -42,7 +42,7 @@ describe('calculateGradientLine 基线值', () => {
 
 describe('回归护栏: 不要退回半对角线', () => {
   it('500×500 @135° 的端点不是半对角线那个错误值 (0,0)→(250,250)', () => {
-    // 半对角线 bug 的特征值: 长度 353.55(= 对角线的一半)
+    // 半对角线错误实现的特征值: 长度 353.55(= 对角线的一半)
     expect(round(lineLength(500, 500, 135))).not.toBe(353.55);
     expect(lineLength(500, 500, 135)).not.toBeCloseTo(500 * Math.SQRT2 / 2, 2);
   });
