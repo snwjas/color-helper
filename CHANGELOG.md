@@ -38,7 +38,7 @@
 
 - 移除死代码与无用文件：`package-lock.json`、`react-router-dom`、`utils/storage.ts`、`context/AppContext.tsx`、`plugin.json` 的 `pluginName` 字段、quantize 死条件 `maxColors > 256`、`App.tsx` 无入口的 AI 配色 regex 分支与透传复制回调
 
-## 1.0.0
+## 1.0.0 - 2026-06-09
 
 ### 新增
 
